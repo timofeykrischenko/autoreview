@@ -184,7 +184,7 @@ function splitByLanguage(output) {
 
 function splitUpdate(language, text) {
   const parts = splitTagged(text, 'part')
-  if (parts.has('update')) return { summary: parts.get('summary'), update: parts.get('update') }
+  if (parts.size > 0) return { summary: parts.get('summary') ?? null, update: parts.get('update') ?? '' }
   console.log(`::warning::auto-review: ${language.code}: no part markers in the output, posting it as the update without a summary`)
   return { summary: null, update: text }
 }
