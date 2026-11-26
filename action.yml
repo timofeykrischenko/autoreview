@@ -1,0 +1,45 @@
+name: Claude auto-review
+description: Claude review of a pull request, kept as one comment per language
+
+inputs:
+  github-token:
+    required: true
+  atlassian-email:
+    required: false
+    default: ''
+  atlassian-api-token:
+    required: false
+    default: ''
+  atlassian-base-url:
+    required: false
+    default: https://535media.atlassian.net
+  jira-project-prefix:
+    required: false
+    default: DFUSION
+  languages:
+    required: false
+    default: ru
+  review-notes:
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Run Claude auto-review
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        REPO: ${{ github.repository }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        BASE_REF: ${{ github.event.pull_request.base.ref }}
+        PR_TITLE: ${{ github.event.pull_request.title }}
+        JIRA_PROJECT_PREFIX: ${{ inputs.jira-project-prefix }}
+        ATLASSIAN_BASE_URL: ${{ inputs.atlassian-base-url }}
+        ATLASSIAN_EMAIL: ${{ inputs.atlassian-email }}
+        ATLASSIAN_API_TOKEN: ${{ inputs.atlassian-api-token }}
+        REVIEW_LANGUAGES: ${{ inputs.languages }}
+        REVIEW_NOTES: ${{ inputs.review-notes }}
+      run: node "$GITHUB_ACTION_PATH/scripts/auto-review.mjs"
