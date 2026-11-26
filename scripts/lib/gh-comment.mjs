@@ -24,7 +24,7 @@ export function findComment({ repo, pr, marker }) {
     `repos/${repo}/issues/${pr}/comments`,
     '--paginate',
     '--jq',
-    `[.[] | select(.body | contains("${marker}"))] | first`,
+    `[.[] | select(.body | startswith("${marker}"))] | first`,
   ])
   const parsed = raw.trim() ? JSON.parse(raw) : null
   if (!parsed) return null
