@@ -103,6 +103,7 @@ function buildPrompt(previousBody, standardsContext, jiraContext) {
       ...languageLines('the ENTIRE review'),
       '- Pure markdown. No preamble, no "Here is your review" sentences.',
       '- Sections: Critical, High, Medium, Minor (omit sections with no findings).',
+      '- Number findings in one sequence across all sections (1, 2, 3...), later iterations refer to these numbers.',
       '- For each finding: file path, line number when applicable, what is wrong, suggested fix.',
       '- Focus on correctness, security, performance, and project conventions.',
       ...CONVENTIONS_LINES,
