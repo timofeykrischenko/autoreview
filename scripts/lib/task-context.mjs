@@ -10,6 +10,8 @@ async function linearTaskContext({ identifier, env, fetchImpl, log }) {
     linear.issue.description,
     linear.parent?.description,
     linear.project?.description,
+    linear.project?.content,
+    ...(linear.project?.documents ?? []).map((document) => document.content),
     ...linear.attachments.map((attachment) => attachment.url),
   ].filter(Boolean)
   const specs = await gatherGoogleSpecs({ descriptions: sources, saKey: env.GOOGLE_SA_KEY, fetchImpl, log })

@@ -60,7 +60,7 @@ jobs:
 
 Стандарты берутся из `CLAUDE.md` репозитория и Confluence-страниц, на которые он ссылается.
 
-Контекст задачи ищется по ключу в ветке или заголовке PR: сначала ключ команды Linear из `linear-team-prefix`, потом ключ Jira. Из Linear берутся задача, родитель, проект, вложения и Google Docs по ссылкам из них; свёрнутый блок «RU Version (auto-translated)» отбрасывается. Ключи Atlassian, Linear и Google в окружение Claude не передаются.
+Контекст задачи ищется по ключу в ветке или заголовке PR: сначала ключ команды Linear из `linear-team-prefix`, потом ключ Jira. Из Linear берутся задача, родитель, проект с его overview и документами, вложения и Google Docs по ссылкам из всего этого; свёрнутый блок «RU Version (auto-translated)» отбрасывается. Ключи Atlassian, Linear и Google в окружение Claude не передаются.
 
 С Linear и двумя языками:
 

@@ -1,4 +1,4 @@
-import { truncateText } from './jira-context.mjs'
+import { demoteMarkdownHeadings, truncateText } from './jira-context.mjs'
 
 const DEFAULT_ENDPOINT = 'https://api.linear.app/graphql'
 const DEFAULT_MAX_FIELD_CHARS = 10000
@@ -10,7 +10,7 @@ const ISSUE_QUERY = `query Issue($teamKey: String!, $number: Float!) {
       title
       description
       parent { identifier title description }
-      project { name description }
+      project { name description content documents(first: 50) { nodes { title url content } } }
       attachments { nodes { title url } }
     }
   }
@@ -89,7 +89,18 @@ export async function gatherLinearContext({ identifier, config, fetchImpl = fetc
       issue: issueOf(node),
       parent: node.parent ? issueOf(node.parent) : null,
       project: node.project
-        ? { name: node.project.name || '', description: stripTranslatedBlock(node.project.description) }
+        ? {
+            name: node.project.name || '',
+            description: stripTranslatedBlock(node.project.description),
+            content: stripTranslatedBlock(node.project.content),
+            documents: (node.project.documents?.nodes ?? [])
+              .map((document) => ({
+                title: document.title || '',
+                url: document.url || '',
+                content: stripTranslatedBlock(document.content),
+              }))
+              .filter((document) => document.content),
+          }
         : null,
       attachments: (node.attachments?.nodes ?? [])
         .filter((attachment) => attachment?.url)
@@ -103,7 +114,7 @@ export async function gatherLinearContext({ identifier, config, fetchImpl = fetc
 
 export function formatTaskContext({ issue, parent, project, attachments = [], specs = [], maxFieldChars = 0 }) {
   if (!issue) return ''
-  const cap = (text) => (maxFieldChars ? truncateText(text, maxFieldChars) : text)
+  const cap = (text) => demoteMarkdownHeadings(maxFieldChars ? truncateText(text, maxFieldChars) : text, 3)
   const lines = ['## Task context (from Linear)', '']
 
   lines.push(`### Task ${issue.identifier}: ${issue.title || ''}`.trimEnd(), '')
@@ -116,7 +127,13 @@ export function formatTaskContext({ issue, parent, project, attachments = [], sp
 
   if (project) {
     lines.push(`### Project: ${project.name || ''}`.trimEnd(), '')
-    lines.push(cap(project.description)?.trim() || '_(no description)_', '')
+    const overview = [project.description, project.content].map((text) => cap(text)?.trim()).filter(Boolean)
+    lines.push(overview.join('\n\n') || '_(no description)_', '')
+    for (const document of project.documents ?? []) {
+      lines.push(`### Project document: ${document.title || document.url}`.trimEnd())
+      if (document.url) lines.push(`<${document.url}>`)
+      lines.push('', cap(document.content).trim(), '')
+    }
   }
 
   if (attachments.length) {
