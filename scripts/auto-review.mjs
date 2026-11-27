@@ -4,13 +4,9 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { findComment, writeComment } from './lib/gh-comment.mjs'
-import {
-  extractIssueKey,
-  gatherClaudeStandardsContext,
-  gatherJiraContext,
-  resolveConfig,
-  truncateText,
-} from './lib/jira-context.mjs'
+import { gatherClaudeStandardsContext, resolveConfig, truncateText } from './lib/jira-context.mjs'
+import { resolveTaskContext } from './lib/task-context.mjs'
+import { claudeEnv } from './lib/claude-env.mjs'
 import { renderInitial, renderUpdate, resolveLanguages, splitTagged, tagLine } from './lib/review-comment.mjs'
 
 const CLAUDE_BIN = process.env.CLAUDE_BIN ?? 'claude'
@@ -19,7 +15,7 @@ const KEEP_FOLDED_SECTIONS = Number(process.env.KEEP_FOLDED_SECTIONS ?? 2)
 
 const CONVENTIONS_LINES = [
   '- Entry point: CLAUDE.md (full text in prompt below) + Confluence pages linked from it.',
-  '- Task context below may add Jira description and extra Confluence pages from the ticket.',
+  '- Task context below may add the Jira or Linear task with its Confluence pages or Google Docs.',
   '- On conflict, Confluence (and ADRs) override repo docs.',
   ...(process.env.REVIEW_NOTES ?? '')
     .split('\n')
@@ -78,24 +74,24 @@ function standardsContextBlock(standardsContext) {
   ]
 }
 
-function taskContextBlock(jiraContext) {
-  if (!jiraContext) return []
+function taskContextBlock(taskContext) {
+  if (!taskContext) return []
   return [
     'Use the task requirements below to judge whether the PR actually fulfils them.',
     'Flag missing requirements and acceptance criteria, not just code-level issues.',
     '',
-    jiraContext,
+    taskContext,
     '',
     '---',
     '',
   ]
 }
 
-function buildPrompt(previousBody, standardsContext, jiraContext) {
+function buildPrompt(previousBody, standardsContext, taskContext) {
   if (!previousBody) {
     return [
       ...standardsContextBlock(standardsContext),
-      ...taskContextBlock(jiraContext),
+      ...taskContextBlock(taskContext),
       `Run \`/review ${PR_NUMBER}\` for repository ${REPO}.`,
       `Current commit: ${SHORT_SHA}.`,
       '',
@@ -113,7 +109,7 @@ function buildPrompt(previousBody, standardsContext, jiraContext) {
 
   return [
     ...standardsContextBlock(standardsContext),
-    ...taskContextBlock(jiraContext),
+    ...taskContextBlock(taskContext),
     `Follow-up review on PR #${PR_NUMBER} in ${REPO} at commit ${SHORT_SHA}.`,
     '',
     'PREVIOUS REVIEW (your earlier comments on this PR, full markdown):',
@@ -150,6 +146,7 @@ function runClaude(prompt) {
   try {
     const result = spawnSync(CLAUDE_BIN, claudeArgs(), {
       input: readFileSync(promptFile, 'utf8'),
+      env: claudeEnv(process.env),
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
       maxBuffer: 32 * 1024 * 1024,
@@ -231,36 +228,18 @@ async function resolveStandardsContext(config) {
   return result
 }
 
-async function resolveJiraContext(config, excludePageIds, confluenceSpentChars = 0) {
-  const prefix = process.env.JIRA_PROJECT_PREFIX || 'DFUSION'
-  const issueKey = extractIssueKey([process.env.HEAD_REF, process.env.PR_TITLE], prefix)
-  if (!issueKey) {
-    console.log('[auto-review] no Jira key in branch/title — skipping task context')
-    return null
-  }
-  console.log(`[auto-review] Jira key: ${issueKey}`)
-  const context = await gatherJiraContext({
-    issueKey,
-    config,
-    excludePageIds,
-    confluenceSpentChars,
-    log: (message) => console.error(message),
-  })
-  console.log(`[auto-review] Jira context: ${context ? 'attached' : 'none'}`)
-  return context
-}
-
 async function main() {
   console.log(`[auto-review] PR #${PR_NUMBER} @ ${SHORT_SHA}, languages: ${LANGUAGES.map((l) => l.code).join(', ')}`)
 
   const config = resolveConfig()
   const standards = await resolveStandardsContext(config)
   const excludePageIds = new Set(standards?.fetchedPageIds ?? [])
-  const jiraContext = await resolveJiraContext(
-    config,
+  const taskContext = await resolveTaskContext({
     excludePageIds,
-    standards?.confluenceSpentChars ?? 0
-  )
+    confluenceSpentChars: standards?.confluenceSpentChars ?? 0,
+    log: (message) => console.error(message),
+  })
+  console.log(`[auto-review] task context: ${taskContext ? 'attached' : 'none'}`)
   const existingComments = new Map(
     LANGUAGES.map((language) => [
       language.code,
@@ -268,7 +247,7 @@ async function main() {
     ])
   )
   const previousBody = existingComments.get(PRIMARY_LANGUAGE.code)?.body
-  const prompt = buildPrompt(previousBody, standards?.markdown ?? null, jiraContext)
+  const prompt = buildPrompt(previousBody, standards?.markdown ?? null, taskContext)
   console.log(`[auto-review] mode: ${previousBody ? 'update' : 'initial'}`)
 
   const output = runClaude(prompt)

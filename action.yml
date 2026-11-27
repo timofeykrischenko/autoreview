@@ -22,6 +22,15 @@ inputs:
   review-notes:
     required: false
     default: ''
+  linear-api-key:
+    required: false
+    default: ''
+  linear-team-prefix:
+    required: false
+    default: ''
+  google-sa-key:
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -42,4 +51,7 @@ runs:
         ATLASSIAN_API_TOKEN: ${{ inputs.atlassian-api-token }}
         REVIEW_LANGUAGES: ${{ inputs.languages }}
         REVIEW_NOTES: ${{ inputs.review-notes }}
+        LINEAR_API_KEY: ${{ inputs.linear-api-key }}
+        LINEAR_TEAM_PREFIX: ${{ inputs.linear-team-prefix }}
+        GOOGLE_SA_KEY: ${{ inputs.google-sa-key }}
       run: node "$GITHUB_ACTION_PATH/scripts/auto-review.mjs"

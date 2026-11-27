@@ -54,5 +54,23 @@ jobs:
 | `jira-project-prefix` | `DFUSION` | префикс ключа задачи в ветке или заголовке PR |
 | `languages` | `ru` | языки через запятую, на каждый отдельный комментарий (`ru,en` в биддере) |
 | `review-notes` | пусто | строки, которые добавляются к правилам промпта для конкретного репозитория |
+| `linear-api-key` | пусто | ключ Linear API, без него задачи Linear не подтягиваются |
+| `linear-team-prefix` | пусто | ключи команд Linear через запятую, например `ELEV,HAL` |
+| `google-sa-key` | пусто | JSON-ключ сервисного аккаунта Google с доступом к документам задачи |
 
-Стандарты берутся из `CLAUDE.md` репозитория и Confluence-страниц, на которые он ссылается, контекст задачи — из Jira по ключу.
+Стандарты берутся из `CLAUDE.md` репозитория и Confluence-страниц, на которые он ссылается.
+
+Контекст задачи ищется по ключу в ветке или заголовке PR: сначала ключ команды Linear из `linear-team-prefix`, потом ключ Jira. Из Linear берутся задача, родитель, проект, вложения и Google Docs по ссылкам из них; свёрнутый блок «RU Version (auto-translated)» отбрасывается. Ключи Atlassian, Linear и Google в окружение Claude не передаются.
+
+С Linear и двумя языками:
+
+```yaml
+      - name: Run Claude auto-review
+        uses: timofeykrischenko/autoreview@<sha>
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          languages: ru,en
+          linear-api-key: ${{ secrets.LINEAR_API_KEY }}
+          linear-team-prefix: ELEV,HAL
+          google-sa-key: ${{ secrets.GOOGLE_SA_KEY }}
+```
